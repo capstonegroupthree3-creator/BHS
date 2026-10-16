@@ -1,0 +1,7 @@
+{
+  "name": "sbhms-ai",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "venv\\Scripts\\python.exe app.py"
+  }
+}
