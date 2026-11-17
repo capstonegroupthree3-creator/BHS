@@ -34,6 +34,8 @@ async function main() {
   const schemaPath = path.join(__dirname, 'schema.sql');
   const seedPath = path.join(__dirname, 'seed.sql');
 
+  const migrationPath = path.join(__dirname, 'migration_v2.sql');
+
   if (!fs.existsSync(schemaPath)) {
     console.error('Missing database/schema.sql');
     process.exit(1);
@@ -66,6 +68,17 @@ async function main() {
     input: seedSql,
     stdio: ['pipe', 'inherit', 'inherit'],
   });
+
+  // Apply v2 migration (adds consent, family access, WHO nutrition columns)
+  if (fs.existsSync(migrationPath)) {
+    console.log('Applying migration_v2.sql...');
+    const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+    execSync(`${mysqlCmd} -u${user} ${auth} -h 127.0.0.1 -P ${port} ${dbName}`, {
+      input: migrationSql,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+    console.log('✔ migration_v2.sql applied successfully.');
+  }
 
   console.log('✔ DB schema and seed loaded successfully.');
 }

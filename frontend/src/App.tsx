@@ -24,6 +24,9 @@ import Vaccinations from './pages/Vaccinations';
 import Analytics from './pages/Analytics';
 import Barangays from './pages/Barangays';
 import Personnel from './pages/Personnel';
+import NutritionAnalysis from './pages/NutritionAnalysis';
+import ConsentManagement from './pages/ConsentManagement';
+import FamilyHealth from './pages/FamilyHealth';
 
 // ── ROUTE GUARD ──
 const ProtectedRoute: React.FC<{
@@ -62,6 +65,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/programs" element={<ProtectedRoute><Programs /></ProtectedRoute>} />
       <Route path="/vaccinations" element={<ProtectedRoute><Vaccinations /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+      {/* SHARED — NEW MODULES */}
+      <Route path="/nutrition" element={<ProtectedRoute allowedRoles={['admin', 'health_personnel']}><NutritionAnalysis /></ProtectedRoute>} />
+      <Route path="/consent" element={<ProtectedRoute allowedRoles={['admin', 'health_personnel']}><ConsentManagement /></ProtectedRoute>} />
+      <Route path="/family" element={<ProtectedRoute><FamilyHealth /></ProtectedRoute>} />
 
       {/* HEALTH PERSONNEL & ADMIN ONLY */}
       <Route path="/" element={<ProtectedRoute allowedRoles={['admin', 'health_personnel']}><Dashboard /></ProtectedRoute>} />

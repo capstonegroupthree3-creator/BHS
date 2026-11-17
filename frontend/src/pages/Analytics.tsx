@@ -36,12 +36,21 @@ const Analytics: React.FC = () => {
     },
     legend: { position: 'top' },
     grid: { borderColor: '#f1f5f9' },
+    tooltip: {
+      y: {
+        formatter: (val: number) => `${val} registered`,
+      }
+    }
   };
 
+  // Seed data: 
+  //   Children:  Gerelle Caluyong → District 7
+  //   Pregnant:  Rona Remitar     → District 1
+  //   Seniors:   Arthuro Luzasa   → District 7 | Sergio Mensidor → Sitio Minbahandi (index 7)
   const districtChartSeries = [
-    { name: 'Active Children Tracked', data: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0] },
-    { name: 'Pregnant Mothers', data: [1, 0, 0, 1, 0, 0, 0, 0, 0, 0] },
-    { name: 'Senior Citizens Logged', data: [1, 0, 0, 0, 0, 0, 1, 1, 0, 0] },
+    { name: 'Active Children Tracked',   data: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0] },
+    { name: 'Pregnant Mothers',           data: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { name: 'Senior Citizens Logged',     data: [0, 0, 0, 0, 0, 0, 1, 1, 0, 0] },
   ];
 
   // Clinical Risk Distribution Donut Chart

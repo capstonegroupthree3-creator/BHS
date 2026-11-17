@@ -72,7 +72,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // 3. Register Senior Citizen (Admin & Health Personnel)
 router.post('/', verifyToken, authorizeRoles('admin', 'health_personnel'), async (req, res) => {
-  const { first_name, last_name, age, birthdate, address, barangay_id, contact_number, medical_conditions, risk_level } = req.body;
+  const { first_name, last_name, age, birthdate, address, barangay_id, contact_number, medical_conditions, risk_level, sex, emergency_contact_name, emergency_contact_number } = req.body;
 
   if (!first_name || !last_name || !age || !birthdate || !barangay_id) {
     return res.status(400).json({ message: 'First name, last name, age, birthdate, and barangay are required.' });
@@ -80,9 +80,9 @@ router.post('/', verifyToken, authorizeRoles('admin', 'health_personnel'), async
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO senior_citizens (first_name, last_name, age, birthdate, address, barangay_id, contact_number, medical_conditions, risk_level)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [first_name, last_name, age, birthdate, address || '', barangay_id, contact_number || '', medical_conditions || '', risk_level || 'Low']
+      `INSERT INTO senior_citizens (first_name, last_name, age, birthdate, address, barangay_id, contact_number, medical_conditions, risk_level, sex, emergency_contact_name, emergency_contact_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [first_name, last_name, age, birthdate, address || '', barangay_id, contact_number || '', medical_conditions || '', risk_level || 'Low', sex || null, emergency_contact_name || null, emergency_contact_number || null]
     );
 
     const seniorId = result.insertId;

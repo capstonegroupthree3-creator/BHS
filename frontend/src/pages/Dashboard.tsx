@@ -11,6 +11,7 @@ import RiskBadge from '../components/RiskBadge';
 import ChildGrowthCalculatorModal from '../components/ChildGrowthCalculatorModal';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface KPIs {
   total_children: number;
@@ -22,6 +23,29 @@ interface KPIs {
   high_risk_pregnancies: number;
   malnutrition_cases: number;
   obesity_cases: number;
+}
+
+interface NutritionSummary {
+  total_assessments: number;
+  severe_wasting: number;
+  wasting: number;
+  normal: number;
+  overweight: number;
+  obese: number;
+  requires_intervention: number;
+}
+
+interface ConsentSummary {
+  total: number;
+  pending: number;
+  granted: number;
+  declined: number;
+}
+
+interface FamilySummary {
+  total_relationships: number;
+  pending_requests: number;
+  approved_access: number;
 }
 
 interface Program {
@@ -67,6 +91,7 @@ const bmiColors: Record<string, string> = {
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [kpis, setKpis] = useState<KPIs | null>(null);
   const [charts, setCharts] = useState<ChartData | null>(null);
   const [priority, setPriority] = useState<PriorityItem[]>([]);
@@ -74,6 +99,9 @@ const Dashboard: React.FC = () => {
   const [isGrowthModalOpen, setIsGrowthModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [nutritionSummary, setNutritionSummary] = useState<NutritionSummary | null>(null);
+  const [consentSummary, setConsentSummary] = useState<ConsentSummary | null>(null);
+  const [familySummary, setFamilySummary] = useState<FamilySummary | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -88,6 +116,20 @@ const Dashboard: React.FC = () => {
       setPriority(priorityRes.data.ranked?.slice(0, 5) ?? []);
       setPrograms(progRes.data || []);
       setLastRefresh(new Date());
+
+      // Load supplementary summaries in background (non-blocking)
+      if (user?.role !== 'parent') {
+        try {
+          const [nutRes, conRes, famRes] = await Promise.allSettled([
+            api.get('/nutrition/summary'),
+            api.get('/consent/summary'),
+            api.get('/family/summary'),
+          ]);
+          if (nutRes.status === 'fulfilled') setNutritionSummary(nutRes.value.data);
+          if (conRes.status === 'fulfilled') setConsentSummary(conRes.value.data);
+          if (famRes.status === 'fulfilled') setFamilySummary(famRes.value.data);
+        } catch (_e) { /* summaries optional */ }
+      }
     } catch (err) {
       console.error('Dashboard data load error:', err);
     } finally {
@@ -203,9 +245,9 @@ const Dashboard: React.FC = () => {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard Overview</h1>
+          <h1 className="page-title">{t('dashboard.title')}</h1>
           <p className="page-subtitle">
-            Health analytics as of{' '}
+            {t('dashboard.healthOverview')} as of{' '}
             <span className="font-medium text-slate-700">
               {lastRefresh.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
             </span>
@@ -218,7 +260,7 @@ const Dashboard: React.FC = () => {
           </button>
           <button onClick={fetchData} className="btn-secondary btn-sm">
             <RefreshCcw className="w-3.5 h-3.5" />
-            Refresh
+            {t('priority.runScan')}
           </button>
         </div>
       </div>
@@ -258,19 +300,72 @@ const Dashboard: React.FC = () => {
 
       {/* KPI STAT CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <StatCard title="Total Children" value={kpis?.total_children ?? 0} icon={Baby} iconBg="bg-blue-100" iconColor="text-blue-600" />
-        <StatCard title="Pregnant Women" value={kpis?.total_pregnant ?? 0} icon={HeartPulse} iconBg="bg-purple-100" iconColor="text-purple-600" />
-        <StatCard title="Fully Immunized" value={kpis?.fully_immunized ?? 0} icon={CheckCircle2} iconBg="bg-green-100" iconColor="text-green-600" />
-        <StatCard title="Missed Vaccines" value={kpis?.missed_vaccinations ?? 0} icon={Syringe} iconBg="bg-orange-100" iconColor="text-orange-500" trend="up" trendLabel="Needs attention" />
-        <StatCard title="High-Risk Maternal" value={kpis?.high_risk_pregnancies ?? 0} icon={ShieldAlert} iconBg="bg-red-100" iconColor="text-red-600" trend="up" trendLabel="Require action" />
-        <StatCard title="Teenage Pregnancies" value={kpis?.teenage_pregnancies ?? 0} icon={AlertTriangle} iconBg="bg-amber-100" iconColor="text-amber-600" />
-        <StatCard title="Malnutrition Cases" value={kpis?.malnutrition_cases ?? 0} icon={Activity} iconBg="bg-rose-100" iconColor="text-rose-600" trend="up" trendLabel="Critical priority" />
-        <StatCard title="Obesity Cases" value={kpis?.obesity_cases ?? 0} icon={TrendingUp} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
-        <StatCard title="Registered Vaccines" value={kpis?.total_vaccines ?? 0} icon={Zap} iconBg="bg-teal-100" iconColor="text-teal-600" />
+        <StatCard title={t('dashboard.totalChildren')} value={kpis?.total_children ?? 0} icon={Baby} iconBg="bg-blue-100" iconColor="text-blue-600" />
+        <StatCard title={t('dashboard.totalPregnant')} value={kpis?.total_pregnant ?? 0} icon={HeartPulse} iconBg="bg-purple-100" iconColor="text-purple-600" />
+        <StatCard title={t('vaccinations.completed')} value={kpis?.fully_immunized ?? 0} icon={CheckCircle2} iconBg="bg-green-100" iconColor="text-green-600" />
+        <StatCard title={t('vaccinations.missed')} value={kpis?.missed_vaccinations ?? 0} icon={Syringe} iconBg="bg-orange-100" iconColor="text-orange-500" trend="up" trendLabel="Needs attention" />
+        <StatCard title={t('dashboard.highRisk')} value={kpis?.high_risk_pregnancies ?? 0} icon={ShieldAlert} iconBg="bg-red-100" iconColor="text-red-600" trend="up" trendLabel="Require action" />
+        <StatCard title={t('pregnant.riskStatus')} value={kpis?.teenage_pregnancies ?? 0} icon={AlertTriangle} iconBg="bg-amber-100" iconColor="text-amber-600" />
+        <StatCard title={t('dashboard.highRisk') + ' ' + t('nutrition.assessment')} value={kpis?.malnutrition_cases ?? 0} icon={Activity} iconBg="bg-rose-100" iconColor="text-rose-600" trend="up" trendLabel="Critical priority" />
+        <StatCard title={t('nutrition.obese')} value={kpis?.obesity_cases ?? 0} icon={TrendingUp} iconBg="bg-indigo-100" iconColor="text-indigo-600" />
+        <StatCard title={t('vaccinations.vaccine')} value={kpis?.total_vaccines ?? 0} icon={Zap} iconBg="bg-teal-100" iconColor="text-teal-600" />
         {user?.role !== 'parent' && (
-          <StatCard title="Total Personnel" value="2" icon={Users} iconBg="bg-slate-100" iconColor="text-slate-600" />
+          <StatCard title={t('nav.personnel')} value="2" icon={Users} iconBg="bg-slate-100" iconColor="text-slate-600" />
         )}
       </div>
+
+      {/* NUTRITION / CONSENT / FAMILY ACCESS SUMMARY ROW */}
+      {user?.role !== 'parent' && (nutritionSummary || consentSummary || familySummary) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {nutritionSummary && (
+            <div className="card p-4 border-l-4 border-emerald-500">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-sm font-semibold text-slate-800">Nutrition Assessments</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <span className="text-slate-500">Total:</span><span className="font-semibold">{nutritionSummary.total_assessments}</span>
+                <span className="text-green-700">Normal:</span><span className="font-semibold text-green-700">{nutritionSummary.normal}</span>
+                <span className="text-orange-600">Wasting:</span><span className="font-semibold text-orange-600">{nutritionSummary.wasting}</span>
+                <span className="text-red-700">Severe Wasting:</span><span className="font-semibold text-red-700">{nutritionSummary.severe_wasting}</span>
+                {nutritionSummary.requires_intervention > 0 && (
+                  <>
+                    <span className="text-rose-700 font-bold">Need Intervention:</span>
+                    <span className="font-bold text-rose-700">{nutritionSummary.requires_intervention}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {consentSummary && (
+            <div className="card p-4 border-l-4 border-blue-500">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <h4 className="text-sm font-semibold text-slate-800">Consent Records</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <span className="text-slate-500">Total:</span><span className="font-semibold">{consentSummary.total}</span>
+                <span className="text-amber-600">Pending:</span><span className="font-semibold text-amber-600">{consentSummary.pending}</span>
+                <span className="text-green-700">Granted:</span><span className="font-semibold text-green-700">{consentSummary.granted}</span>
+                <span className="text-red-600">Declined:</span><span className="font-semibold text-red-600">{consentSummary.declined}</span>
+              </div>
+            </div>
+          )}
+          {familySummary && (
+            <div className="card p-4 border-l-4 border-purple-500">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                <h4 className="text-sm font-semibold text-slate-800">Family Health Access</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <span className="text-slate-500">Relationships:</span><span className="font-semibold">{familySummary.total_relationships}</span>
+                <span className="text-amber-600">Pending:</span><span className="font-semibold text-amber-600">{familySummary.pending_requests}</span>
+                <span className="text-green-700">Approved:</span><span className="font-semibold text-green-700">{familySummary.approved_access}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CHARTS ROW 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">

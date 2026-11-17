@@ -249,7 +249,23 @@ CREATE TABLE IF NOT EXISTS senior_citizens (
     INDEX idx_senior_names (last_name, first_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 16. Senior Medications Table
+-- 16. Parent Guardian Consent Table
+CREATE TABLE IF NOT EXISTS parent_guardian_consent (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT NOT NULL,
+    child_id INT,
+    consent_type VARCHAR(100) NOT NULL DEFAULT 'Health Data Access',
+    consent_status ENUM('pending','granted','declined','withdrawn','expired') DEFAULT 'pending',
+    consent_date DATE DEFAULT NULL,
+    expiry_date DATE DEFAULT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE CASCADE,
+    FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE SET NULL,
+    INDEX idx_consent_parent (parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 17. Senior Medications Table
 CREATE TABLE IF NOT EXISTS senior_medications (
     id INT AUTO_INCREMENT PRIMARY KEY,
     senior_id INT NOT NULL,

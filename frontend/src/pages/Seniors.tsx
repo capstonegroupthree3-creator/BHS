@@ -5,6 +5,7 @@ import RiskBadge from '../components/RiskBadge';
 import { useAuth } from '../context/AuthContext';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { exportToExcel } from '../lib/excelExport';
+import { useTranslation } from 'react-i18next';
 
 interface Senior {
   id: number;
@@ -18,6 +19,9 @@ interface Senior {
   medical_conditions: string;
   risk_level: string;
   active_medications_count: number;
+  sex?: string;
+  emergency_contact_name?: string;
+  emergency_contact_number?: string;
 }
 
 interface Medication {
@@ -34,6 +38,7 @@ interface Medication {
 
 const Seniors: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [seniors, setSeniors] = useState<Senior[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -59,6 +64,9 @@ const Seniors: React.FC = () => {
     contact_number: '',
     medical_conditions: 'Hypertension',
     risk_level: 'Low',
+    sex: 'M',
+    emergency_contact_name: '',
+    emergency_contact_number: '',
   });
 
   // Prescribe Medication Form State
@@ -210,8 +218,8 @@ const Seniors: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Senior Citizens Health & Maintenance Medication Registry</h1>
-          <p className="page-subtitle">Track elder health conditions, maintenance drug compliance, and AI safety precautions</p>
+          <h1 className="page-title">{t('seniors.title')}</h1>
+          <p className="page-subtitle">{t('seniors.healthHistory')}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={handleDownloadExcel} className="btn-secondary">
@@ -364,7 +372,21 @@ const Seniors: React.FC = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                   <p className="text-xs font-bold text-blue-900">{selectedSenior.first_name} {selectedSenior.last_name}</p>
                   <p className="text-[11px] text-blue-700">{selectedSenior.age} years old · {selectedSenior.barangay_name}</p>
+                  {selectedSenior.sex && (
+                    <p className="text-[11px] text-slate-600 mt-0.5">Sex: <strong>{selectedSenior.sex === 'M' ? 'Male' : 'Female'}</strong></p>
+                  )}
                   <p className="text-[11px] text-slate-600 mt-1">Medical Conditions: <strong>{selectedSenior.medical_conditions}</strong></p>
+                  {(selectedSenior.emergency_contact_name || selectedSenior.emergency_contact_number) && (
+                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-[11px] font-semibold text-amber-800">🚨 Emergency Contact</p>
+                      {selectedSenior.emergency_contact_name && (
+                        <p className="text-[11px] text-amber-700">{selectedSenior.emergency_contact_name}</p>
+                      )}
+                      {selectedSenior.emergency_contact_number && (
+                        <p className="text-[11px] text-amber-700">{selectedSenior.emergency_contact_number}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {medications.length === 0 ? (
@@ -516,6 +538,25 @@ const Seniors: React.FC = () => {
                 <div className="form-group">
                   <label className="form-label">Contact Number</label>
                   <input className="form-input text-xs" placeholder="0917-xxx-xxxx" value={regForm.contact_number} onChange={(e) => setRegForm({ ...regForm, contact_number: e.target.value })} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="form-group">
+                    <label className="form-label">Sex</label>
+                    <select className="form-select text-xs" value={regForm.sex} onChange={(e) => setRegForm({ ...regForm, sex: e.target.value })}>
+                      <option value="M">Male</option>
+                      <option value="F">Female</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Emergency Contact Number</label>
+                    <input className="form-input text-xs" placeholder="09xx-xxx-xxxx" value={regForm.emergency_contact_number} onChange={(e) => setRegForm({ ...regForm, emergency_contact_number: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Emergency Contact Name</label>
+                  <input className="form-input text-xs" placeholder="Full name of emergency contact person" value={regForm.emergency_contact_name} onChange={(e) => setRegForm({ ...regForm, emergency_contact_name: e.target.value })} />
                 </div>
 
                 <div className="form-group">

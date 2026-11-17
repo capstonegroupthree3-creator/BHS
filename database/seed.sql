@@ -50,9 +50,9 @@ INSERT INTO children (id, first_name, last_name, birthdate, sex, parent_id, bara
 (1, 'Gerelle', 'Caluyong', '2026-02-03', 'M', 1, 7);
 
 -- 7. Insert Growth Monitoring & Operation Timbang History for Gerelle Caluyong
-INSERT INTO growth_monitoring (child_id, visit_date, height_cm, weight_kg, bmi, nutrition_status, stunting_status, wasting_status, micronutrient_deficiency_risk, recorded_by, recommendations) VALUES
-(1, '2026-02-05', 50.0, 3.4, 13.60, 'Normal', 'Normal', 'Normal', 'Low Risk', 2, 'Newborn health checkup. Continue exclusive breastfeeding for the first 6 months.'),
-(1, CURDATE(), 62.0, 6.8, 17.69, 'Normal', 'Normal', 'Normal', 'Low Risk', 2, 'Gerelle Caluyong is growing healthily! Weight and height are on track for age.');
+INSERT IGNORE INTO growth_monitoring (id, child_id, visit_date, height_cm, weight_kg, bmi, nutrition_status, who_classification, stunting_status, wasting_status, micronutrient_deficiency_risk, recorded_by, recommendations) VALUES
+(1, 1, '2026-02-05', 50.0, 3.4, 13.60, 'Normal', 'Normal', 'Normal', 'Normal', 'Low Risk', 2, 'Newborn health checkup. Continue exclusive breastfeeding for the first 6 months.'),
+(2, 1, '2026-11-17', 62.0, 6.8, 17.69, 'Normal', 'Normal', 'Normal', 'Normal', 'Low Risk', 2, 'Gerelle Caluyong is growing healthily! Weight and height are on track for age.');
 
 -- 8. Insert Vaccination Records for Gerelle Caluyong
 INSERT INTO vaccination_records (child_id, vaccine_id, dose_number, status, scheduled_date, administered_date, administered_by, remarks) VALUES

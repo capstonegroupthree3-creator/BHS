@@ -83,20 +83,27 @@ router.get('/trends', verifyToken, async (req, res) => {
 // 1b. Combined Multi-Disease Trend & AI Forecast (1 Graph with Legend & Auto Disease Detection)
 router.get('/combined-trends', verifyToken, async (req, res) => {
   try {
+    // Only pull diseases actually recorded in disease_cases table
     const [caseDiseases] = await pool.query('SELECT DISTINCT disease_name FROM disease_cases');
+    // Only pull senior conditions that have matching disease_cases entries too
     const [seniors] = await pool.query('SELECT medical_conditions FROM senior_citizens WHERE medical_conditions IS NOT NULL');
 
-    const diseaseSet = new Set(['Dengue', 'Hypertension', 'Diabetes', 'Cataracts', 'Asthma']);
+    // Start from an EMPTY set — only add diseases that have real data
+    const diseaseSet = new Set();
 
     caseDiseases.forEach(d => {
       if (d.disease_name && d.disease_name.trim()) diseaseSet.add(d.disease_name.trim());
     });
 
+    // Add senior conditions ONLY if they also appear in disease_cases
+    const caseNames = new Set(caseDiseases.map(d => d.disease_name?.trim()).filter(Boolean));
     seniors.forEach(s => {
       if (s.medical_conditions) {
         s.medical_conditions.split(',').forEach(c => {
           const clean = c.trim();
-          if (clean.length > 2) diseaseSet.add(clean);
+          // Only include if there's a matching case in disease_cases (partial match)
+          const hasCase = [...caseNames].some(cn => cn.toLowerCase().includes(clean.toLowerCase()) || clean.toLowerCase().includes(cn.toLowerCase()));
+          if (clean.length > 2 && hasCase) diseaseSet.add(clean);
         });
       }
     });
@@ -126,38 +133,31 @@ router.get('/combined-trends', verifyToken, async (req, res) => {
         [`%${disease}%`]
       );
 
-      const [seniorMatches] = await pool.query(
-        `SELECT COUNT(*) as cnt FROM senior_citizens WHERE medical_conditions LIKE ?`,
-        [`%${disease}%`]
-      );
-      const seniorWeight = seniorMatches[0]?.cnt || 0;
-
+      // Build historical data points — use 0 for months with no actual recorded cases
       const dataPoints = [];
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const y = d.getFullYear();
         const m = d.getMonth() + 1;
-        const match = counts.find(c => c.year === y && c.month === m);
-        const val = match ? match.cases : Math.max(1, Math.floor(seniorWeight * (0.8 + ((i % 3) * 0.1))));
-        dataPoints.push(val);
+        const match = counts.find(c => Number(c.year) === y && Number(c.month) === m);
+        dataPoints.push(match ? Number(match.cases) : 0);
       }
 
-      const avg = Math.round(dataPoints.reduce((a, b) => a + b, 0) / dataPoints.length);
+      // AI Forecast: simple linear projection from real historical average
+      // If all zero (no data), forecast stays 0
+      const totalReal = dataPoints.reduce((a, b) => a + b, 0);
+      const avg = totalReal > 0 ? Math.round(totalReal / dataPoints.length) : 0;
       for (let i = 1; i <= 3; i++) {
-        dataPoints.push(Math.max(1, Math.round(avg * (1 + (i * 0.05)))));
+        // Only project upward if there is actual data
+        const forecast = avg > 0 ? Math.round(avg * (1 + (i * 0.05))) : 0;
+        dataPoints.push(forecast);
       }
 
-      series.push({
-        name: disease,
-        data: dataPoints
-      });
+      series.push({ name: disease, data: dataPoints });
     }
 
-    res.json({
-      diseases,
-      categories,
-      series
-    });
+    // If no diseases found in DB, return empty series (not error) so frontend shows empty state
+    res.json({ diseases, categories, series });
   } catch (error) {
     console.error('Get combined trends error:', error);
     res.status(500).json({ message: 'Error generating combined disease trends' });

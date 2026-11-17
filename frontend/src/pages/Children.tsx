@@ -6,6 +6,7 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import ExcelImportModal from '../components/ExcelImportModal';
 import { exportToExcel } from '../lib/excelExport';
+import { useTranslation } from 'react-i18next';
 
 interface Child {
   id: number;
@@ -45,6 +46,7 @@ interface GrowthRecord {
 
 const Children: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [children, setChildren] = useState<Child[]>([]);
   const [parents, setParents] = useState<Parent[]>([]);
   const [barangays, setBarangays] = useState<Barangay[]>([]);
@@ -220,8 +222,8 @@ const Children: React.FC = () => {
     <div className="space-y-5 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Children & Operation Timbang Growth Registry</h1>
-          <p className="page-subtitle">Tap any child record below to view growth charts, Timbang history, and AI nutrition guidance</p>
+          <h1 className="page-title">{t('children.title')}</h1>
+          <p className="page-subtitle">{t('children.growthMonitoring')}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={handleDownloadExcel} className="btn-secondary">

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Baby, HeartPulse, Syringe,
   BarChart3, FileText, Settings, LogOut, Menu, X,
   ChevronRight, Shield, MapPin, Activity, UserCheck,
-  AlertTriangle, Calendar,
+  AlertTriangle, Calendar, Globe, Heart, FileCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
@@ -30,6 +30,9 @@ const navItems: NavItem[] = [
   { label: 'Health Personnel', href: '/personnel', icon: UserCheck, roles: ['admin'] },
   { label: 'Parents / Guardians', href: '/parents', icon: Users, roles: ['admin', 'health_personnel'] },
   { label: 'AI Priority List', href: '/priority', icon: AlertTriangle, roles: ['admin', 'health_personnel'] },
+  { label: 'Nutrition Analysis', href: '/nutrition', icon: Activity, roles: ['admin', 'health_personnel'] },
+  { label: 'Consent Management', href: '/consent', icon: FileCheck, roles: ['admin', 'health_personnel'] },
+  { label: 'Family Health', href: '/family', icon: Heart, roles: ['admin', 'health_personnel', 'parent'] },
   { label: 'Disease Trends', href: '/trends', icon: Activity, roles: ['admin', 'health_personnel'] },
   { label: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['admin', 'health_personnel'] },
   { label: 'Reports', href: '/reports', icon: FileText, roles: ['admin', 'health_personnel'] },
@@ -39,10 +42,17 @@ const navItems: NavItem[] = [
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
-  const { t } = useThemeLanguage();
+  const { t, lang, toggleLang } = useThemeLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // currentLang tracks both the ThemeLanguageContext lang AND i18next lang (they stay in sync)
+  const currentLang = lang;
+
+  const toggleLanguage = () => {
+    toggleLang(); // ThemeLanguageContext.toggleLang() now also calls i18n.changeLanguage()
+  };
 
   const allowedNav = navItems.filter((item) => user && item.roles.includes(user.role));
 
@@ -154,6 +164,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           <div className="flex items-center gap-2">
             <NotificationBell />
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+            {/* Language Toggle */}
+            <button
+              onClick={toggleLanguage}
+              title={currentLang === 'en' ? 'Switch to Bisaya (Cebuano)' : 'Switch to English'}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+              aria-label="Toggle language"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>{currentLang === 'en' ? '🇵🇭 EN' : '🇵🇭 CEB'}</span>
+            </button>
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
             <span className="hidden sm:block text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
               {roleLabel[user?.role as keyof typeof roleLabel]}

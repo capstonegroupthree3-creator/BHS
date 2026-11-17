@@ -27,6 +27,9 @@ app.use('/api/audit', require('./routes/audit'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/seniors', require('./routes/seniors'));
+app.use('/api/nutrition', require('./routes/nutrition'));
+app.use('/api/consent', require('./routes/consent'));
+app.use('/api/family', require('./routes/family'));
 
 // Base Route
 app.get('/', (req, res) => {

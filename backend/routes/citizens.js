@@ -17,16 +17,36 @@ const verifyParentAccess = async (req, res, targetParentUserId) => {
   return true;
 };
 
-// 1. Get Parents List (Admin & Health Personnel only)
-router.get('/parents', verifyToken, authorizeRoles('admin', 'health_personnel'), async (req, res) => {
+// 1. Get Parents List
+// Admin & Health Personnel → all parents
+// Parent role → only their own record
+router.get('/parents', verifyToken, async (req, res) => {
   try {
-    const [parents] = await pool.query(`
-      SELECT p.*, u.username, u.email, u.phone, u.status, b.name as barangay_name 
+    let query = `
+      SELECT p.*, u.username, u.email, u.phone, u.status, b.name as barangay_name,
+             (SELECT COUNT(*) FROM children c WHERE c.parent_id = p.id) as children_count
       FROM parents p
       JOIN users u ON p.user_id = u.id
       JOIN barangays b ON p.barangay_id = b.id
-      ORDER BY p.last_name ASC
-    `);
+    `;
+    let params = [];
+
+    if (req.user.role === 'parent') {
+      query += ' WHERE p.user_id = ?';
+      params.push(req.user.id);
+    }
+
+    if (req.user.role === 'health_personnel') {
+      // Health workers see parents in their assigned district
+      const [hp] = await pool.query('SELECT barangay_id FROM health_personnel WHERE user_id = ?', [req.user.id]);
+      if (hp.length > 0) {
+        query += ' WHERE p.barangay_id = ?';
+        params.push(hp[0].barangay_id);
+      }
+    }
+
+    query += ' ORDER BY p.last_name ASC';
+    const [parents] = await pool.query(query, params);
     res.json(parents);
   } catch (error) {
     console.error('Get parents error:', error);
@@ -101,19 +121,40 @@ router.get('/parents/:id', verifyToken, async (req, res) => {
   }
 });
 
-// 1c. Update Parent Details (Admin & Health Personnel)
-router.put('/parents/:id', verifyToken, authorizeRoles('admin', 'health_personnel'), async (req, res) => {
+// 1c. Update Parent Details
+// Admin & Health Personnel can update any parent.
+// Parent role can ONLY update their own contact/address/health_information (no clinical edits).
+router.put('/parents/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { first_name, last_name, contact_number, address, barangay_id } = req.body;
+  const { first_name, last_name, contact_number, address, barangay_id, birthdate, sex, health_information } = req.body;
 
   try {
+    // If parent role: verify ownership, restrict editable fields
+    if (req.user.role === 'parent') {
+      const [own] = await pool.query('SELECT id FROM parents WHERE id = ? AND user_id = ?', [id, req.user.id]);
+      if (own.length === 0) {
+        return res.status(403).json({ message: 'Access denied: You can only update your own profile.' });
+      }
+      // Parent may only update contact info and health info
+      await pool.query(
+        `UPDATE parents SET contact_number = ?, address = ?, health_information = ? WHERE id = ?`,
+        [contact_number || '', address || '', health_information || '', id]
+      );
+      await logAudit(req.user.id, 'PARENT_SELF_UPDATE', `Parent ID ${id} updated own contact/health info`, req);
+      return res.json({ message: 'Your profile has been updated successfully!' });
+    }
+
+    // Admin / health_personnel: full update
+    if (req.user.role !== 'admin' && req.user.role !== 'health_personnel') {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
     await pool.query(
-      `UPDATE parents SET first_name = ?, last_name = ?, contact_number = ?, address = ?, barangay_id = ? WHERE id = ?`,
-      [first_name, last_name, contact_number || '', address || '', barangay_id, id]
+      `UPDATE parents SET first_name = ?, last_name = ?, contact_number = ?, address = ?, barangay_id = ?, birthdate = ?, sex = ?, health_information = ? WHERE id = ?`,
+      [first_name, last_name, contact_number || '', address || '', barangay_id, birthdate || null, sex || null, health_information || '', id]
     );
 
     await logAudit(req.user.id, 'PARENT_PROFILE_UPDATED', `Updated Parent record ID ${id} (${first_name} ${last_name})`, req);
-
     res.json({ message: `Parent record for ${first_name} ${last_name} updated successfully!` });
   } catch (error) {
     console.error('Update parent error:', error);
@@ -806,4 +847,53 @@ router.post('/vaccinations/send-missed-notice', verifyToken, authorizeRoles('adm
   }
 });
 
+// 18. GET Consent Records for a Parent
+router.get('/consent', verifyToken, async (req, res) => {
+  const { parent_id } = req.query;
+  if (!parent_id) return res.status(400).json({ message: 'parent_id is required' });
+
+  try {
+    // Role checks: parent can only see own, HP sees district, admin sees all
+    if (req.user.role === 'parent') {
+      const [rows] = await pool.query('SELECT id FROM parents WHERE user_id = ?', [req.user.id]);
+      if (!rows.length || rows[0].id !== parseInt(parent_id)) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    const [records] = await pool.query(
+      `SELECT pgc.*, c.first_name as child_first_name, c.last_name as child_last_name
+       FROM parent_guardian_consent pgc
+       LEFT JOIN children c ON pgc.child_id = c.id
+       WHERE pgc.parent_id = ?
+       ORDER BY pgc.created_at DESC`,
+      [parent_id]
+    );
+    res.json(records);
+  } catch (error) {
+    console.error('Get consent error:', error);
+    res.status(500).json({ message: 'Failed to fetch consent records' });
+  }
+});
+
+// 19. POST Create Consent Record
+router.post('/consent', verifyToken, authorizeRoles('admin', 'health_personnel'), async (req, res) => {
+  const { parent_id, child_id, consent_type, consent_status, consent_date, expiry_date, notes } = req.body;
+  if (!parent_id || !consent_type) return res.status(400).json({ message: 'parent_id and consent_type are required' });
+
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO parent_guardian_consent (parent_id, child_id, consent_type, consent_status, consent_date, expiry_date, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [parent_id, child_id || null, consent_type, consent_status || 'pending', consent_date || null, expiry_date || null, notes || null]
+    );
+    await logAudit(req.user.id, 'CONSENT_CREATED', `Created consent record for parent_id ${parent_id}`, req);
+    res.status(201).json({ message: 'Consent record created', id: result.insertId });
+  } catch (error) {
+    console.error('Create consent error:', error);
+    res.status(500).json({ message: 'Failed to create consent record' });
+  }
+});
+
 module.exports = router;
+
